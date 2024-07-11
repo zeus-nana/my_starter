@@ -2,37 +2,81 @@ const express = require('express');
 const db = require('../db/db');
 
 const getAllUsers = (req, res) => {
-  res.send('Get all users');
+  try {
+    const users = db('users');
+    return res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: {
+        users,
+      },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err,
+    });
+  }
 };
 
-const getUser = (req, res) => {
-  res.send('Get user');
+const getUser = async (req, res) => {
+  try {
+    const user = await db('users').where({ id: req.params.id }).first();
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'User not found',
+      });
+    }
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        user,
+      },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err,
+    });
+  }
 };
 
-const createUser = async (req, res, next) => {
-  console.log('ok');
+const createUser = async (req, res) => {
+  try {
+    const newUser = req.body;
 
-  const newUser = req.body;
+    // Validation
+    if (!(await isValidUser(newUser))) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Missing informations',
+      });
+    }
 
-  // Validation
-  if (!(await isValidUser(newUser))) {
-    return res.status(400).send('Invalid user');
+    // Check if user already exists
+    const userExists = await checkUserExists(newUser.email);
+    if (userExists) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'This user (email) already exists',
+      });
+    }
+    // Create user
+    const createdUser = await db('users').insert(newUser, '*');
+
+    return res.status(201).json({
+      status: 'success',
+      data: {
+        user: createdUser[0],
+      },
+    });
+  } catch (err) {
+    res.status(400).json({
+      status: 'fail',
+      message: err,
+    });
   }
-
-  // Check if user already exists
-  const userExists = await checkUserExists(newUser.email);
-  if (userExists) {
-    return res.status(400).send('User already exists');
-  }
-
-  // Create user
-  await db('users').insert(newUser);
-  res.status(201).json({
-    status: 'success',
-    data: {
-      user: newUser,
-    },
-  });
 };
 
 const updateUser = (req, res) => {
